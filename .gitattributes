@@ -1,0 +1,18 @@
+* text=auto
+
+# Binary assets and prebuilt libraries
+*.a binary
+*.lib binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+
+# Generated firmware outputs, if force-added for release snapshots.
+*.elf binary
+*.hex text eol=crlf
+*.bin binary
+*.s19 text eol=crlf
+*.mot text eol=crlf
