@@ -10,37 +10,27 @@ int8 i;
 int sum;
 int zero=0;
 int8 suo=0;
-#define xishu 1
 //显示赛道边线以及循迹线
-void draw_line(void)
+void draw_line(uint16 x, uint16 y, uint16 width, uint16 height)
 {
     uint8 i;
+    uint16 point_x;
+    uint16 point_y;
     for(i=MT9V03X_1_H-3;i>5;i--)
     {
-        ips200_draw_point(xishu*image_left[i] ,xishu*i,RGB565_GREEN);
-        ips200_draw_point(xishu*image_right[i],xishu*i,RGB565_YELLOW);
-        ips200_draw_point(xishu*image_mid[i]  ,xishu*i,RGB565_RED);
+        point_y = y + (uint16)((uint32)i * height / MT9V03X_1_H);
+
+        point_x = x + (uint16)((uint32)image_left[i] * width / MT9V03X_1_W);
+        ips200_draw_point(point_x, point_y, RGB565_GREEN);
+
+        point_x = x + (uint16)((uint32)image_right[i] * width / MT9V03X_1_W);
+        ips200_draw_point(point_x, point_y, RGB565_YELLOW);
+
+        point_x = x + (uint16)((uint32)image_mid[i] * width / MT9V03X_1_W);
+        ips200_draw_point(point_x, point_y, RGB565_RED);
 
 //        ips200_draw_point(xishu*Limit(1,MT9V03X_1_W-2,image_left[i]+1) ,xishu*i,RGB565_GREEN);
 //        ips200_draw_point(xishu*Limit(1,MT9V03X_1_W-2,image_right[i]+1),xishu*i,RGB565_YELLOW);
-        if(count==3 && suo==0)
-        {
-            ips200_full(RGB565_RED);
-            suo=0;
-        }
-        if(count==4 && suo==0)
-          {
-              ips200_full(RGB565_BLUE);
-              suo=0;
-          }
-        if(count==7)
-        {
-            ips200_full(RGB565_GREEN);
-        }
-        if(count==5)
-        {
-            ips200_full(RGB565_PINK);
-        }
     }
 }
 

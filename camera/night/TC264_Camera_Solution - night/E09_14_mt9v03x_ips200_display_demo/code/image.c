@@ -30,6 +30,7 @@ uint8 right_duandian=0;
 uint8 flag_three_road=0;                                                //三岔路口状态机标志位
 // ================= 新增：转弯冷却护盾 =================
 int turn_cooldown = 0;
+static uint8 straight_lock_mid = 0;
 uint8 threshold_update_cnt=0;
 uint8 threshold_far=0;
 uint8 threshold_mid=0;
@@ -41,14 +42,17 @@ uint8 test2=0;
 uint8 test3=0;
 uint8 count=0,count2=0;
 #define end_line            5
-#define scarch_left         12
-#define scarch_right        12
+#define scarch_left         16
+#define scarch_right        16
 #define scarch_left_double  8
 #define scarch_right_double 8
-#define THRESHOLD_MIN       120
+#define THRESHOLD_MIN       100
 #define THRESHOLD_MAX       200
 #define DILATE_THRESHOLD    (255 * 5)
 #define ERODE_THRESHOLD     (255 * 2)
+
+uint8 scarch_left_show = scarch_left;
+uint8 scarch_right_show = scarch_right;
 
 uint8 Find_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W],uint8 y);
 uint8 Find_above_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W],uint8 x);
@@ -56,9 +60,12 @@ uint8 Find_above_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W],uint8 x);
 //转向数组，1直走，2右转，3左转
 uint8 Turn_road[]=
 {
-        3,1,2,2,2,1,3,2,2,2,2,3,3,3,4
+//          1,3,1,2,2,1,1,3,3,3,3,1,1,1,4 //全赛道
+        1,1,3,3,3,3,1,4               //调试口字回路
+//        1,1,4                         //调试正T字路口
 //        2,3,3,2,3,3,2,3,1,1,4,
 };
+#define TURN_ROAD_LENGTH    ((uint8)(sizeof(Turn_road) / sizeof(Turn_road[0])))
 
 uint8 San_cha[]=
 {
@@ -619,7 +626,8 @@ uint8 mid_weight[120]=              //中线加权数组
     1,1,1,1,1,1,1,1,1,1,
     6,6,6,6,6,6,6,6,6,6,
     7,8,9,10,11,12,13,14,15,16,
-    17,18,19,20,20,20,20,19,18,17,
+    16,17,18,19,19,19,19,18,17,16,
+    //17,18,19,20,20,20,20,19,18,17,
     16,15,14,13,12,11,10,9,8,7,
     6,6,6,6,6,6,6,6,6,6,
     1,1,1,1,1,1,1,1,1,1,
@@ -763,18 +771,18 @@ void Find_bianxian(uint8 image[MT9V03X_1_H][MT9V03X_1_W])
         {
             if(have_left_turn!=1 && have_right_turn!=1)
             {
-                for(i=72; i>30; i--) // 从下往上扫，寻找第一个满足条件的跳变
+                for(i=74; i>26; i--) // 从下往上扫，寻找第一个满足条件的跳变
                 {
                     if((abs((int16)image_mid[i] - (int16)image_mid[i-1])) > 3   &&
                       (abs((int16)image_mid[i-1] - (int16)image_mid[i-2])) > 2 &&
                       (abs((int16)image_mid[i-2] - (int16)image_mid[i-3])) > 1)
                     {
                         // ------------------ 场景 1：先发现左边有路 ------------------
-                        if(Find_road(image, 2)==1 && Find_road(image, 5)==1)
+                        if(Find_road(image, 3)==1 && Find_road(image, 6)==1)
                         {
                             have_left_turn = 1;
 
-                            if(Find_road(image, MT9V03X_1_W-5)==1 && Find_road(image, MT9V03X_1_W-8)==1)
+                            if(Find_road(image, MT9V03X_1_W-6)==1 && Find_road(image, MT9V03X_1_W-9)==1)
                             {
                                 have_right_turn = 1; // 左右都有，完美确认为 T型
                             }
@@ -782,10 +790,10 @@ void Find_bianxian(uint8 image[MT9V03X_1_H][MT9V03X_1_W])
                         }
 
                         // ------------------ 场景 2：先发现右边有路 ------------------
-                        if(Find_road(image, MT9V03X_1_W-3)==1 && Find_road(image, MT9V03X_1_W-8)==1)
+                        if(Find_road(image, MT9V03X_1_W-4)==1 && Find_road(image, MT9V03X_1_W-9)==1)
                         {
                             have_right_turn = 1;
-                            if(Find_road(image, 2)==1 && Find_road(image, 5)==1)
+                            if(Find_road(image, 3)==1 && Find_road(image, 6)==1)
                             {
                                 have_left_turn = 1; // 左右都有，完美确认为 T型
                             }
@@ -818,10 +826,57 @@ uint8 Find_line(void)
 
 //判断三岔路口
 // 判断三岔路口、三极管、T字路口
+// Detect front T: road width expands sharply while the midline stays stable.
+static uint8 Check_Width_T(void)
+{
+    uint8 hit_count = 0;
+
+    for(uint8 i = MT9V03X_1_H - 14; i > 25; i--)
+    {
+        int16 width_now = (int16)image_right[i] - (int16)image_left[i];
+        int16 width_below = (int16)image_right[i + 8] - (int16)image_left[i + 8];
+
+        int16 left_expand = (int16)image_left[i + 8] - (int16)image_left[i];
+        int16 right_expand = (int16)image_right[i] - (int16)image_right[i + 8];
+        int16 mid_shift = abs((int16)image_mid[i] - (int16)image_mid[i + 8]);
+        int16 expand_diff = abs(left_expand - right_expand);
+
+        if(width_now > width_below + 20 &&
+           width_now > MT9V03X_1_W * 3 / 5 &&
+           left_expand > 6 &&
+           right_expand > 6 &&
+           mid_shift < 8 &&
+              expand_diff < 6)
+        {
+            hit_count++;
+            if(hit_count >= 4)
+            {
+                return 1;
+            }
+        }
+        else
+        {
+            hit_count = 0;
+        }
+    }
+
+    return 0;
+}
+
 void Three_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W])
 {
 #define One_line 5
     if (turn_cooldown > 0) return;
+    uint8 is_width_T = Check_Width_T();
+    if(is_width_T)
+    {
+        have_left_turn = 1;
+        have_right_turn = 1;
+        have_road = 1;
+        flag_three_road = 1;
+        return;
+    }
+
     // 【核心优化】：把锁提到最外面！只要上锁了，直接跳过，一滴算力都不浪费
     if (flag_three_road == 0)
     {
@@ -841,7 +896,7 @@ void Three_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W])
         // ================= 终极仲裁 =================
 
         // 只要满足上面任意一种“复杂元素”的特征，立刻宣判为三岔路口，并上锁！
-        if (is_T_shape || is_Y_shape || is_Transistor)
+        if (is_width_T || is_T_shape || is_Y_shape || is_Transistor)
         {
             have_road = 1;
             flag_three_road = 1;
@@ -855,15 +910,78 @@ void Three_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W])
     }
 }
 //遇到三岔路口判断是否需要转向
+static uint8 Is_Transistor_Straight_Count(void)
+{
+    return (count==1 || count==6);
+}
+
+static uint8 Get_Near_Mid_Average(void)
+{
+    uint32 sum = 0;
+    uint8 num = 0;
+
+    for(uint8 i = MT9V03X_1_H - 25; i < MT9V03X_1_H - 5; i++)
+    {
+        sum += image_mid[i];
+        num++;
+    }
+
+    if(num == 0)
+    {
+        return (uint8)Limit(1, MT9V03X_1_W - 2, target_center);
+    }
+
+    return (uint8)Limit(1, MT9V03X_1_W - 2, (uint8)(sum / num));
+}
+
+static void Lock_Straight_Midline(void)
+{
+    uint8 lock_mid = straight_lock_mid;
+
+    if(lock_mid == 0)
+    {
+        lock_mid = Get_Near_Mid_Average();
+        straight_lock_mid = lock_mid;
+    }
+
+    for(uint8 i = end_line + 1; i < MT9V03X_1_H - 2; i++)
+    {
+        image_left[i] = lock_mid;
+        image_right[i] = lock_mid;
+        image_mid[i] = lock_mid;
+    }
+
+    mid_last_line = lock_mid;
+}
+
 void Turn_or_not_turn(void)
 {
     static uint8 temp=0;
     if(have_road==1 && turn==0)
     {
-        turn=Turn_road[temp++];
+        uint8 route_index = temp;
+        if(route_index >= TURN_ROAD_LENGTH)
+        {
+            route_index = TURN_ROAD_LENGTH - 1;
+        }
+
+        turn=Turn_road[route_index];
         // 加上这句保护，防止数组越界读出乱码！
-        if(temp >= sizeof(Turn_road)) { temp = sizeof(Turn_road) - 1; }
-        count=temp;
+        count=route_index + 1;
+        if(Is_Transistor_Straight_Count() && turn==1)
+        {
+            straight_lock_mid = Get_Near_Mid_Average();
+            turn_cooldown = 40;
+        }
+        if(temp < TURN_ROAD_LENGTH - 1)
+        {
+            temp++;
+        }
+        else
+        {
+            temp = TURN_ROAD_LENGTH - 1;
+        }
+        Debug_Buzzer_BeepOnce();
     }
 }
 
@@ -937,7 +1055,7 @@ void Turn_time(void)
 {
     #define Angle_turn 70
     #define Sanjiguan  25
-    #define Distance   5500
+    #define Distance   3000
     float yaw_current;
     static float yaw_target;
     static int distance=0;
@@ -982,7 +1100,7 @@ void Turn_time(void)
             {
                 // 2. 核心视觉魔法：
                 // 从屏幕右上角顶点 (187, 0)
-                // 连线到 拐点位置原有的中线 (image_mid[corner_row], corner_row)
+                // 连线到 拐点位置原有的中线 (image_m id[corner_row], corner_row)
                 // 这行代码只会修改 0 到 corner_row 的中线，完美保留拐点下方的直线轨迹！
                 change_line(MT9V03X_1_W - 1, 0, image_mid[corner_row], corner_row);
             }
@@ -1087,6 +1205,10 @@ void Turn_time(void)
     }
     if(flag==3)
     {
+        if(Is_Transistor_Straight_Count())
+        {
+            Lock_Straight_Midline();
+        }
         distance+=(motor_encoder_left.encoder_speed+motor_encoder_right.encoder_speed)/2;
         if(distance>Distance)
         {
@@ -1100,7 +1222,9 @@ void Turn_time(void)
             have_right_turn = 0; // 必须加上！
             have_road = 0;       // 必须加上！
             flag_three_road = 0;
-            turn_cooldown = 10;  // 【新增】：开启 40 帧无敌护盾！
+            turn_cooldown = 10;
+            if(Is_Transistor_Straight_Count()){turn_cooldown = 40;}
+            straight_lock_mid = 0;
         }
     }
 
@@ -1178,6 +1302,13 @@ int16 Get_image_err(uint8 mid_line_already)
 
     // 对误差本身进行一阶低通滤波 (比例 2:8，平滑画面毛刺防止舵机抽搐)
     mid_out = (err_last * 2 + current_err * 8) / 10;
+
+//    current_err = (int16)mid_line_already - target_center;
+//    mid_out = (err_last * 4 + current_err * 6) / 10;
+    //    if(mid_out > -3 && mid_out < 3)
+    //    {
+    //       mid_out = 0;
+    //    }
 
     err_last = mid_out;
 

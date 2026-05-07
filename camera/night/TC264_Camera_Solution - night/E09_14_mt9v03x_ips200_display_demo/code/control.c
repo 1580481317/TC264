@@ -18,8 +18,10 @@ int8 run=1;                              //可以跑的标志位，用于跟
 
 void control_core(int16 mid_err,uint8 zero)
 {
-    if(flag==1 || flag==2){steer_pid.kp  = 2.6;}
-    else{steer_pid.kp  = 1.8;}
+    if(flag==1 || flag==2){steer_pid.kp  = 2.2;}
+    else{steer_pid.kp  = 1.6;}
+    //if(flag==1 || flag==2){steer_pid.kp  = 2.6;}
+    //else{steer_pid.kp  = 1.8;}
         steer_out=steer_pid_calc((float)mid_err,imu660rb_gyro_transition((imu660rb_gyro_z-zero)),&steer_pid);              //计算转角值，存入steer_out中
         left_speed_target=speed_base+steer_out;                             //左轮目标速度=基础速度加转角值
         right_speed_target=speed_base-steer_out;                            //右轮目标速度=基础速度减转角值

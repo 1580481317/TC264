@@ -78,19 +78,24 @@ void core1_main(void)
     cpu_wait_event_ready();                 // 等待所有核心初始化完毕
     while (TRUE)
     {
+        Debug_Buzzer_Task();
         // 此处编写需要循环执行的代码
         if(mt9v03x_finish_flag_1)
         {
             system_start();
             memcpy(image_sample[0],mt9v03x_image_1[0],MT9V03X_1_IMAGE_SIZE);
             yuzhi=Get_yuzhi(mt9v03x_image_1);
+
             memcpy(image_display[0],image_already[0],MT9V03X_1_IMAGE_SIZE);
+
             Find_jidian(image_already);                             //找基点
             Find_bianxian(image_already);                           //找边界线
             Three_road(image_already);
             Turn_or_not_turn();
             Turn_time();
             mid_line_already=Find_line();                           //算出中线位置
+            Debug_Assistant_SendFrame();
+            Debug_Buzzer_Task();
             if(flag1==1)
             {
                 time=system_getval_us();

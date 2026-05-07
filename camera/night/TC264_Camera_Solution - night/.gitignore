@@ -37,6 +37,7 @@
 *.orig
 *.swp
 *.swo
+*.pdom
 *~
 
 # OS/editor noise

@@ -101,6 +101,7 @@ uint32  mt9v03x_time[2];
     {MT9V03X_DOUBLE_PCLK_MODE,         MT9V03X_1_PCLK_MODE_DEF},        // 像素时钟模式   仅总钻风MT9V034 V2.0以及以上版本支持该命令
 };
 
+
  int16 mt9v03x_set_confing_buffer_2[MT9V03X_DOUBLE_CONFIG_FINISH][2]=
 {
     {MT9V03X_DOUBLE_INIT,              0},                              // 摄像头开始初始化
@@ -125,12 +126,14 @@ uint32  mt9v03x_time[2];
 //-------------------------------------------------------------------------------------------------------------------
 static void mt9v03x_dma_restart_1(void)
 {
+
     dma_disable(MT9V03X_1_DMA_CH);
     IfxDma_resetChannel(&MODULE_DMA, MT9V03X_1_DMA_CH);
     dma_init(MT9V03X_1_DMA_CH,
              MT9V03X_1_DATA_ADD,
              mt9v03x_image_1[0],
              MT9V03X_1_PCLK_PIN,
+
              EXTI_TRIGGER_FALLING,
              MT9V03X_1_IMAGE_SIZE);           // 如果超频到300M 倒数第二个参数请设置为FALLING
     dma_enable(MT9V03X_1_DMA_CH);

@@ -70,12 +70,67 @@
 
 //3.14
 
+#define PREVIEW_X       (0)
+#define PREVIEW_Y       (0)
+#define PREVIEW_W       (220)
+#define PREVIEW_H       (139)
+#define PANEL_X         (226)
+#define PANEL_TOP_Y     (2)
+#define DATA_TOP_Y      (148)
+
+static void show_i32_with_label(uint16 label_x, uint16 y, const char label[], uint16 value_x, int32 value, uint8 digits)
+{
+    ips200_show_string(label_x, y, label);
+    ips200_show_int(value_x, y, value, digits);
+}
+
+static void show_status_panel(void)
+{
+    ips200_set_font(IPS200_6X8_FONT);
+    ips200_set_color(RGB565_BLACK, RGB565_WHITE);
+
+    ips200_draw_line(PREVIEW_W + 2, 0, PREVIEW_W + 2, PREVIEW_H, RGB565_GRAY);
+    ips200_draw_line(0, PREVIEW_H + 5, 319, PREVIEW_H + 5, RGB565_GRAY);
+
+    ips200_show_string(PANEL_X, PANEL_TOP_Y, "TRACK");
+    show_i32_with_label(PANEL_X, 14, "Mid:", 252, mid_line_already, 3);
+    show_i32_with_label(PANEL_X, 26, "Err:", 252, mid_err, 4);
+    show_i32_with_label(PANEL_X, 38, "Time:", 258, (int32)time, 8);
+    show_i32_with_label(PANEL_X, 50, "Yaw:", 252, (int32)Yaw, 5);
+    show_i32_with_label(PANEL_X, 62, "Str:", 252, (int32)steer_out, 5);
+
+    ips200_show_string(PANEL_X, 82, "ROAD");
+    show_i32_with_label(PANEL_X, 94, "L:", 244, have_left_turn, 1);
+    show_i32_with_label(258, 94, "R:", 276, have_right_turn, 1);
+    show_i32_with_label(PANEL_X, 106, "Rd:", 250, have_road, 1);
+    show_i32_with_label(258, 106, "Tn:", 282, turn, 1);
+    show_i32_with_label(PANEL_X, 118, "CD:", 250, turn_cooldown, 3);
+
+    ips200_show_string(0, DATA_TOP_Y, "MOTOR");
+    ips200_show_string(PANEL_X, DATA_TOP_Y, "TEST");
+    show_i32_with_label(0, 160, "Steer:", 42, (int32)steer_out, 5);
+    show_i32_with_label(108, 160, "Yaw:", 138, (int32)Yaw, 5);
+    show_i32_with_label(PANEL_X, 160, "SL:", 258, scarch_left_show, 3);
+    show_i32_with_label(0, 174, "Lspd:", 36, (int32)left_speed_target, 5);
+    show_i32_with_label(108, 174, "Rspd:", 144, (int32)right_speed_target, 5);
+    show_i32_with_label(PANEL_X, 174, "SR:", 258, scarch_right_show, 3);
+    //show_i32_with_label(268, 174, "M:", 286, threshold_mid, 3);
+    show_i32_with_label(0, 188, "Time:", 36, (int32)time, 8);
+    show_i32_with_label(108, 188, "Zero:", 144, zero, 5);
+    //show_i32_with_label(PANEL_X, 188, "N:", 244, threshold_near, 3);
+    show_i32_with_label(0, 202, "L:", 18, have_left_turn, 1);
+    show_i32_with_label(36, 202, "R:", 54, have_right_turn, 1);
+    show_i32_with_label(72, 202, "Road:", 108, have_road, 1);
+    show_i32_with_label(132, 202, "Turn:", 168, turn, 1);
+
+}
+
 int core0_main(void)
 {
     clock_init();                   // 获取时钟频率<务必保留>
     debug_init();                   // 初始化默认调试串口
     // 此处编写用户代码 例如外设初始化代码等
-//    Init_uart();
+    Debug_Assistant_Init();
 
 //    ips200_set_dir(3);
 //    ips200_init(IPS200_TYPE_SPI);
@@ -100,29 +155,9 @@ int core0_main(void)
     while (TRUE)
     {
         // 此处编写需要循环执行的代码
-        draw_line();                                                                                       //画边界线
-        ips200_show_gray_image(0, 0, (const uint8 *)image_display, MT9V03X_1_W, MT9V03X_1_H, 128, 81, 0);     // 显示二值化图像
-
-        ips200_show_int(0,100,mid_line_already,3); //显示中线位置
-        ips200_show_int(40,100,mid_err,3);           //显示中线误差
-        ips200_show_int(120,100,time,8);            //一帧处理的时间
-
-        ips200_show_int(0,120,have_left_turn,1);    //左转标志位
-        ips200_show_int(40,120,have_right_turn,1);  //右转标志位
-        ips200_show_int(80,120,have_road,1);        //三岔路口标注位
-        ips200_show_int(100,120,turn,1);            //遇到三岔路口决定左转还是右转标志位（1直走，2右转，3左转）
-
-        ips200_show_int(0,150,(int)steer_out,5);    //转角值
-        ips200_show_int(60,150,(int)left_speed_target,5);  //左轮目标速度
-        ips200_show_int(120,150,(int)right_speed_target,5);//右轮目标速度
-
-        ips200_show_int(0,170,Yaw,3);              //偏航角
-//        ips200_show_int(40,170,image_mid[55],3);
-//        ips200_show_int(80,170,image_right[55],3);
-
-//        ips200_show_int(0,190,Yaw,5);
-//        ips200_show_uint(50,190,Find_above_road(image_display,6),5);
-//        ips200_show_uint(100,190,Find_road(image_display,MT9V03X_1_W-8),3);
+        ips200_show_gray_image(PREVIEW_X, PREVIEW_Y, (const uint8 *)image_display, MT9V03X_1_W, MT9V03X_1_H, PREVIEW_W, PREVIEW_H, 0);
+        draw_line(PREVIEW_X, PREVIEW_Y, PREVIEW_W, PREVIEW_H);
+        show_status_panel();
     }
 }
 

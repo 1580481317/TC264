@@ -6,6 +6,11 @@
  */
 #include"vofa.h"
 
+#define DEBUG_BUZZER_PIN            (P33_10)
+#define DEBUG_BUZZER_TOGGLE_US      (200000)
+#define DEBUG_BUZZER_TOGGLE_COUNT   (2)
+#define DEBUG_SERIAL_BUFFER_SIZE    (256)
+
 
 uint8 uart_get_data[64];                                                 // 串口接收数据缓冲区
 uint8 fifo_get_data[64];                                                // fifo 输出读出缓冲区
@@ -13,6 +18,145 @@ uint8  get_data = 0;                                                  // 接收�
 uint32 fifo_data_count = 0;                                         // fifo 数据个数
 fifo_struct uart_data_fifo;
 PIDNUM NUM;
+static uint8 debug_assistant_ready = 0;
+static uint8 debug_special_pending = 0;
+static uint8 debug_last_corner_flag = 0;
+static uint8 debug_buzzer_active = 0;
+static uint8 debug_buzzer_toggle_count = 0;
+static uint32 debug_buzzer_last_us = 0;
+
+void Debug_Assistant_Init(void)
+{
+    wireless_uart_init();
+
+    gpio_init(DEBUG_BUZZER_PIN, GPO, GPIO_LOW, GPO_PUSH_PULL);
+    debug_assistant_ready = 1;
+    wireless_uart_send_string("TC264 debug serial ready.\r\n");
+}
+
+void Debug_Buzzer_BeepOnce(void)
+{
+    if(!debug_assistant_ready)
+    {
+        return;
+    }
+
+    gpio_set_level(DEBUG_BUZZER_PIN, GPIO_HIGH);
+    debug_buzzer_last_us = system_getval_us();
+    debug_buzzer_toggle_count = 1;
+    debug_buzzer_active = 1;
+    debug_special_pending = 1;
+}
+
+void Debug_Buzzer_Task(void)
+{
+    if(!debug_buzzer_active)
+    {
+        return;
+    }
+
+    if((uint32)(system_getval_us() - debug_buzzer_last_us) < DEBUG_BUZZER_TOGGLE_US)
+    {
+        return;
+    }
+
+    debug_buzzer_last_us = system_getval_us();
+    if(debug_buzzer_toggle_count < DEBUG_BUZZER_TOGGLE_COUNT)
+    {
+        gpio_toggle_level(DEBUG_BUZZER_PIN);
+        debug_buzzer_toggle_count++;
+    }
+    else
+    {
+        gpio_set_level(DEBUG_BUZZER_PIN, GPIO_LOW);
+        debug_buzzer_active = 0;
+    }
+}
+
+void Debug_Assistant_SendFrame(void)
+{
+    char debug_serial_buffer[DEBUG_SERIAL_BUFFER_SIZE];
+    uint8 corner_flag = 0;
+
+    if(!debug_assistant_ready)
+    {
+        return;
+    }
+
+    if(debug_special_pending)
+    {
+        debug_special_pending = 0;
+        debug_last_corner_flag = flag;
+        zf_sprintf((int8 *)debug_serial_buffer,
+               "\r\n========== SPECIAL ROAD ==========\r\n"
+               "count:%d  turn:%d  flag:%d\r\n"
+               "err:%d  mid:%d  L:%d  R:%d  road:%d  CD:%d\r\n"
+               "==================================\r\n",
+               count,
+               turn,
+               flag,
+               mid_err,
+               mid_line_already,
+               have_left_turn,
+               have_right_turn,
+               have_road,
+               turn_cooldown);
+        wireless_uart_send_string(debug_serial_buffer);
+        return;
+    }
+
+    if(have_road == 0 && turn == 0)
+    {
+        if(flag == 1)
+        {
+            corner_flag = 1;
+        }
+        else if(flag == 2)
+        {
+            corner_flag = 2;
+        }
+    }
+
+    if(corner_flag == 0)
+    {
+        debug_last_corner_flag = 0;
+        return;
+    }
+
+    if(corner_flag == debug_last_corner_flag)
+    {
+        return;
+    }
+
+    debug_last_corner_flag = corner_flag;
+    if(corner_flag == 1)
+    {
+        zf_sprintf((int8 *)debug_serial_buffer,
+                   "\r\n------------ RIGHT CORNER ------------\r\n"
+                   "err:%d  mid:%d  L:%d  R:%d  flag:%d  CD:%d\r\n"
+                   "--------------------------------------\r\n",
+                   mid_err,
+                   mid_line_already,
+                   have_left_turn,
+                   have_right_turn,
+                   flag,
+                   turn_cooldown);
+    }
+    else
+    {
+        zf_sprintf((int8 *)debug_serial_buffer,
+                   "\r\n------------- LEFT CORNER ------------\r\n"
+                   "err:%d  mid:%d  L:%d  R:%d  flag:%d  CD:%d\r\n"
+                   "--------------------------------------\r\n",
+                   mid_err,
+                   mid_line_already,
+                   have_left_turn,
+                   have_right_turn,
+                   flag,
+                   turn_cooldown);
+    }
+    wireless_uart_send_string(debug_serial_buffer);
+}
 
 void Init_uart(void)
 {

@@ -8,7 +8,9 @@
 #ifndef CODE_DISPLAY_H_
 #define CODE_DISPLAY_H_
 
-void draw_line(void);
+#include "zf_common_typedef.h"
+
+void draw_line(uint16 x, uint16 y, uint16 width, uint16 height);
 uint8 Caiyang(void);
 
 extern int zero;

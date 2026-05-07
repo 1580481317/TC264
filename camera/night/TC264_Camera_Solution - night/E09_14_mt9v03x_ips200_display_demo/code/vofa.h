@@ -15,6 +15,10 @@ void Send_test(void);
 void uart_rx_interrupt_handler (void);
 float Get_Data(void);
 void USART_PID_Adjust();
+void Debug_Assistant_Init(void);
+void Debug_Assistant_SendFrame(void);
+void Debug_Buzzer_Task(void);
+void Debug_Buzzer_BeepOnce(void);
 
 typedef struct
 {

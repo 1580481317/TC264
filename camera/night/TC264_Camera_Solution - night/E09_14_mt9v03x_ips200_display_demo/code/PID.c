@@ -24,10 +24,10 @@ void pid_param_init(void)
     r_speed_pid.ki = 0.35;
     r_speed_pid.output=0;
 
-    steer_pid.kp  = 1.8;
+    steer_pid.kp  = 1.6;
     steer_pid.kp2 = 0;
     steer_pid.kd  = 0;
-    steer_pid.gkd = -0.25;
+    steer_pid.gkd = -0.26;
 }
 
 float speed_pid_calc(int target, int input, Speed_Pid *pid)

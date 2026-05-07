@@ -52,6 +52,11 @@ extern uint8 right_duandian;
 extern uint8 test1;
 extern uint8 test2;
 extern uint8 test3;
+extern uint8 threshold_far;
+extern uint8 threshold_mid;
+extern uint8 threshold_near;
+extern uint8 scarch_left_show;
+extern uint8 scarch_right_show;
 extern uint8 count,count2;
 extern uint8 flag;
 #endif /* CODE_IMAGE_H_ */
