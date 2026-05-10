@@ -60,8 +60,8 @@ uint8 Find_above_road(uint8 image[MT9V03X_1_H][MT9V03X_1_W],uint8 x);
 //转向数组，1直走，2右转，3左转
 uint8 Turn_road[]=
 {
-//          1,3,1,2,2,1,1,3,3,3,3,1,1,1,4 //全赛道
-        1,1,3,3,3,3,1,4               //调试口字回路
+          1,3,1,2,2,1,1,3,3,3,3,1,1,1,4 //全赛道
+//        1,1,3,3,3,3,1,4               //调试口字回路
 //        1,1,4                         //调试正T字路口
 //        2,3,3,2,3,3,2,3,1,1,4,
 };
@@ -818,7 +818,14 @@ uint8 Find_line(void)
         weight_total+=mid_weight[i];
     }
     mid_line=(uint8)(mid_line_sum/weight_total);
-    mid_out=(2*mid_last_line+8*mid_line)/10;         //滤波
+    if(flag == 1 || flag == 2)
+    {
+        mid_out = mid_line;
+    }
+    else
+    {
+        mid_out=(2*mid_last_line+8*mid_line)/10;         //滤波
+    }
     mid_last_line=mid_out;
     mid_err=Get_image_err(mid_out);
     return mid_out;
@@ -1055,7 +1062,7 @@ void Turn_time(void)
 {
     #define Angle_turn 70
     #define Sanjiguan  25
-    #define Distance   3000
+    #define Distance   2000
     float yaw_current;
     static float yaw_target;
     static int distance=0;
@@ -1102,7 +1109,11 @@ void Turn_time(void)
                 // 从屏幕右上角顶点 (187, 0)
                 // 连线到 拐点位置原有的中线 (image_m id[corner_row], corner_row)
                 // 这行代码只会修改 0 到 corner_row 的中线，完美保留拐点下方的直线轨迹！
-                change_line(MT9V03X_1_W - 1, 0, image_mid[corner_row], corner_row);
+                uint8 end_row = corner_row + 25;
+                if(end_row < 62) end_row = 62;
+                if(end_row > MT9V03X_1_H - 2) end_row = MT9V03X_1_H - 2;
+
+                change_line(MT9V03X_1_W - 12, 0, MT9V03X_1_W - 12, end_row);
             }
             else
             {
@@ -1171,7 +1182,11 @@ void Turn_time(void)
             if (corner_row > 10 && corner_row < MT9V03X_1_H - 10)
             {
                 // 2. 从屏幕左上角顶点 (0, 0) 连线到拐点中线
-                change_line(0, 0, image_mid[corner_row], corner_row);
+                uint8 end_row = corner_row + 25;
+                if(end_row < 62) end_row = 62;
+                if(end_row > MT9V03X_1_H - 2) end_row = MT9V03X_1_H - 2;
+
+                change_line(12, 0, 12, end_row);
             }
             else
             {
@@ -1192,9 +1207,11 @@ void Turn_time(void)
             have_road = 0;       // 必须加上！
             flag_three_road = 0;
             turn_cooldown = 15;  // 【新增】：开启 40 帧无敌护盾！
-            if(count==3){turn_cooldown = 0;}
-            if(count==6){turn_cooldown = 40;}
-            if(count==7){turn_cooldown = 5;}//转角距离太短
+
+//以下是用来给赛道打补丁用的，在识别某个特殊元素、第几个特殊元素的时候，可以相对应地给予它们不同的保护帧
+//            if(count==3){turn_cooldown = 0;}
+//            if(count==6){turn_cooldown = 40;}
+//            if(count==7){turn_cooldown = 5;}//转角距离太短
 //            if(count==8){turn_cooldown = 5;}//转角距离太短
         }
     }
@@ -1301,7 +1318,14 @@ int16 Get_image_err(uint8 mid_line_already)
     current_err = (int16)mid_line_already - target_center;
 
     // 对误差本身进行一阶低通滤波 (比例 2:8，平滑画面毛刺防止舵机抽搐)
-    mid_out = (err_last * 2 + current_err * 8) / 10;
+    if(flag == 1 || flag == 2)
+    {
+        mid_out = current_err;
+    }
+    else
+    {
+        mid_out = (err_last * 2 + current_err * 8) / 10;
+    }
 
 //    current_err = (int16)mid_line_already - target_center;
 //    mid_out = (err_last * 4 + current_err * 6) / 10;
